@@ -1,0 +1,91 @@
+name: Phase 1 CI Verification
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'papermind-go/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'papermind-go/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: papermind-go
+
+jobs:
+  phase-1:
+    name: Phase 1 Full Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: papermind-go/go.sum
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client curl
+
+      - name: Start Docker Compose services
+        run: docker compose -f deployments/docker-compose/docker-compose.yml up -d
+
+      - name: Wait for infrastructure ready
+        run: bash scripts/wait_phase_1_infra.sh
+        timeout-minutes: 5
+
+      - name: Run database migrations
+        run: make migrate-up
+
+      - name: Run Go tests
+        run: make test
+
+      - name: Start API server and capture logs
+        run: |
+          go run cmd/api/main.go > reports/api.log 2>&1 &
+          echo $! > /tmp/api_pid.txt
+          sleep 3
+
+      - name: Run Phase 1 verification
+        run: make verify-phase-1
+
+      - name: Generate Phase 1 report
+        if: always()
+        run: make report-phase-1
+
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/api_pid.txt ]; then
+            kill "$(cat /tmp/api_pid.txt)" 2>/dev/null || true
+          fi
+
+      - name: Upload Phase 1 reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-1-reports
+          path: |
+            papermind-go/reports/phase-1-report.md
+            papermind-go/reports/phase-1-acceptance.log
+            papermind-go/reports/api.log
+          retention-days: 30
+
+      - name: Verify Phase 1 passed
+        run: |
+          if grep -q "FAIL_COUNT=[1-9]" reports/phase-1-results.env 2>/dev/null; then
+            echo "::error::Phase 1 verification has failures"
+            exit 1
+          fi
+          if grep -q "SKIP_COUNT=[1-9]" reports/phase-1-results.env 2>/dev/null; then
+            echo "::error::Phase 1 verification has skipped items (not allowed in CI)"
+            exit 1
+          fi
+          echo "Phase 1 CI verification passed"
