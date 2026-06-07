@@ -1,0 +1,38 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/cmd/api/api
+/cmd/worker/worker
+/cmd/migration/migration
+
+# Test binary
+*.test
+
+# Output
+/testout*
+
+# Dependency directories
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (keep example)
+# manifest/config/config.yaml
+
+# Reports
+/reports/*.log
+
+# Temp
+*.tmp

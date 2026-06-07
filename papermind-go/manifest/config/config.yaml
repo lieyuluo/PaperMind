@@ -1,0 +1,35 @@
+server:
+  address: ":8080"
+  mode: "dev"
+
+postgres:
+  dsn: "postgres://papermind:papermind@localhost:5432/papermind?sslmode=disable"
+
+qdrant:
+  address: "localhost:6334"
+  http_address: "http://localhost:6333"
+  chunk_collection: "paper_chunks"
+  logic_collection: "logic_nodes"
+
+minio:
+  endpoint: "localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "papers"
+  use_ssl: false
+
+temporal:
+  address: "localhost:7233"
+  namespace: "default"
+  task_queue: "paper-ingestion"
+
+llm:
+  provider: "openai-compatible"
+  base_url: "http://localhost:11434/v1"
+  api_key: "replace-me"
+  chat_model: "gpt-4.1"
+  embedding_model: "text-embedding-3-small"
+
+jwt:
+  secret: "dev-secret"
+  expire_seconds: 86400
