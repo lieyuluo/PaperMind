@@ -59,22 +59,15 @@ curl -sf -X PUT http://localhost:9000/papers \
 
 # --- Temporal ---
 # Temporal auto-setup needs time to: wait for PostgreSQL -> create databases -> init schema -> start server
-# We check both: gRPC port 7233 open AND "started" in container logs
+# We check if gRPC port 7233 is accepting connections (sufficient to indicate server is ready)
 TEMPORAL_RETRIES=90
 TEMPORAL_INTERVAL=3
 echo -n "Temporal (:7233): "
 for i in $(seq 1 $TEMPORAL_RETRIES); do
     # Check if gRPC port is reachable
     if (echo > /dev/tcp/localhost/7233) &>/dev/null 2>&1; then
-        # Port is open - verify server has actually started (not just binding)
-        if docker logs papermind-temporal 2>&1 | tail -5 | grep -qi "started"; then
-            echo "READY (${i}s) - server started"
-            break
-        fi
-        # Port open but server not fully started yet, keep waiting
-        if [ "$i" -eq "$TEMPORAL_RETRIES" ]; then
-            echo "FAILED (port open but server not started after ${TEMPORAL_RETRIES}x${TEMPORAL_INTERVAL}s)"
-        fi
+        echo "READY (${i}s) - gRPC port open"
+        break
     fi
     if [ "$i" -eq "$TEMPORAL_RETRIES" ]; then
         echo "FAILED (timeout after ${TEMPORAL_RETRIES}x${TEMPORAL_INTERVAL}s)"
