@@ -6,7 +6,6 @@ volumes:
   papermind-postgres-data:
   papermind-qdrant-data:
   papermind-minio-data:
-  papermind-temporal-data:
 
 services:
   postgresql:
@@ -79,20 +78,16 @@ services:
       POSTGRES_SEEDS: postgresql
       POSTGRES_USER: papermind
       POSTGRES_PWD: papermind
-      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/dynamicconfig/development.yaml
       ENABLE_SQL_FEATURES: visibility,advanced_visibility
     ports:
       - "7233:7233"
-      - "9090:9090"
-    volumes:
-      - papermind-temporal-data:/var/lib/temporal
     networks:
       - papermind-net
     depends_on:
       postgresql:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "temporal operator search-attribute list || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7233/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -111,7 +106,7 @@ services:
       - papermind-net
     depends_on:
       temporal:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
