@@ -174,10 +174,13 @@ fi
 # =============================================================================
 echo ""
 echo "--- Go Tests ---"
-if cd "$PROJECT_DIR" && go test ./... 2>&1 | tee -a "$LOG_FILE"; then
-    check_pass "Go tests" "All tests passed"
-else
+TEST_OUTPUT=$(cd "$PROJECT_DIR" && go test ./... 2>&1) || true
+echo "$TEST_OUTPUT"
+echo "$TEST_OUTPUT" >> "$LOG_FILE"
+if echo "$TEST_OUTPUT" | grep -q "^FAIL\|^--- FAIL\|^panic\|^fatal"; then
     check_fail "Go tests" "Some tests failed"
+else
+    check_pass "Go tests" "All tests passed"
 fi
 
 # =============================================================================
