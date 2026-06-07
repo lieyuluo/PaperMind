@@ -71,6 +71,18 @@ jobs:
       - name: Run Phase 1 verification
         run: PHASE1_CI=true make verify-phase-1
 
+      - name: Diagnostic output
+        if: always()
+        run: |
+          echo "=== phase-1-results.env ==="
+          cat reports/phase-1-results.env 2>/dev/null || echo "(not found)"
+          echo ""
+          echo "=== phase-1-acceptance.log ==="
+          cat reports/phase-1-acceptance.log 2>/dev/null || echo "(not found)"
+          echo ""
+          echo "=== api.log ==="
+          cat reports/api.log 2>/dev/null || echo "(not found)"
+
       - name: Generate Phase 1 report
         if: always()
         run: make report-phase-1
