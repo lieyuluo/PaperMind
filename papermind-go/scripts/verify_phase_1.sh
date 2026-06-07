@@ -138,18 +138,15 @@ fi
 # =============================================================================
 echo ""
 echo "--- Temporal Health ---"
-if command -v curl &> /dev/null; then
-    if curl -sf http://localhost:7233/health &> /dev/null; then
-        check_pass "Temporal health" "HTTP health check passed"
-    else
-        if [ "${PHASE1_CI:-false}" = "true" ]; then
-            check_fail "Temporal health" "Temporal not reachable on http://localhost:7233/health"
-        else
-            check_skip "Temporal health" "Temporal not reachable (service may not be running)"
-        fi
-    fi
+# Temporal is a gRPC service - check if port 7233 is accepting connections
+if (echo > /dev/tcp/localhost/7233) &>/dev/null 2>&1; then
+    check_pass "Temporal health" "gRPC port 7233 is reachable"
 else
-    check_skip "Temporal health" "curl not available"
+    if [ "${PHASE1_CI:-false}" = "true" ]; then
+        check_fail "Temporal health" "Temporal gRPC port 7233 not reachable"
+    else
+        check_skip "Temporal health" "Temporal not reachable (service may not be running)"
+    fi
 fi
 
 # =============================================================================

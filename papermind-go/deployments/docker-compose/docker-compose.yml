@@ -20,6 +20,7 @@ services:
       - "5432:5432"
     volumes:
       - papermind-postgres-data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/00-grant-createdb.sql:ro
     networks:
       - papermind-net
     healthcheck:
@@ -81,17 +82,13 @@ services:
       ENABLE_SQL_FEATURES: visibility,advanced_visibility
     ports:
       - "7233:7233"
+      - "7234:7234"
+      - "7235:7235"
     networks:
       - papermind-net
     depends_on:
       postgresql:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/7233' || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
 
   temporal-ui:
     image: temporalio/ui:latest

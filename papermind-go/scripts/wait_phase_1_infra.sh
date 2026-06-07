@@ -58,30 +58,32 @@ curl -sf -X PUT http://localhost:9000/papers \
     -u minioadmin:minioadmin &>/dev/null && echo "created" || echo "may already exist"
 
 # --- Temporal ---
-# Temporal exposes gRPC on :7233. We check if the port is open and accepting connections.
-# The auto-setup image does not expose an HTTP health endpoint by default.
+# Temporal auto-setup needs time to create databases and initialize schema.
+# We check if the gRPC port 7233 is accepting connections.
+# Temporal auto-setup typically takes 30-90 seconds to become ready.
+TEMPORAL_RETRIES=90
+TEMPORAL_INTERVAL=3
 echo -n "Temporal (:7233): "
-for i in $(seq 1 $MAX_RETRIES); do
-    # Method 1: Check if gRPC port is reachable using bash /dev/tcp
+for i in $(seq 1 $TEMPORAL_RETRIES); do
+    # Check if gRPC port is reachable using bash /dev/tcp
     if (echo > /dev/tcp/localhost/7233) &>/dev/null 2>&1; then
         echo "READY (${i}s) - port open"
         break
     fi
-    # Method 2: Try HTTP health endpoint (some Temporal versions expose it)
-    if curl -sf --max-time 2 http://localhost:7233/health &>/dev/null; then
-        echo "READY (${i}s) - HTTP health"
-        break
-    fi
-    if [ "$i" -eq "$MAX_RETRIES" ]; then
-        echo "FAILED (timeout after ${MAX_RETRIES}x${RETRY_INTERVAL}s)"
-        # Print diagnostic info
-        echo "--- Diagnostic: Docker container status ---"
-        docker ps -a --filter "name=papermind-temporal" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
-        echo "--- Diagnostic: Temporal container logs (last 20 lines) ---"
-        docker logs papermind-temporal --tail 20 2>&1 || true
+    if [ "$i" -eq "$TEMPORAL_RETRIES" ]; then
+        echo "FAILED (timeout after ${TEMPORAL_RETRIES}x${TEMPORAL_INTERVAL}s)"
+        echo ""
+        echo "=== Diagnostic: Docker container status ==="
+        docker ps -a --filter "name=papermind-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+        echo ""
+        echo "=== Diagnostic: Temporal container logs (last 40 lines) ==="
+        docker logs papermind-temporal --tail 40 2>&1 || true
+        echo ""
+        echo "=== Diagnostic: PostgreSQL container logs (last 20 lines) ==="
+        docker logs papermind-postgres --tail 20 2>&1 || true
         exit 1
     fi
-    sleep $RETRY_INTERVAL
+    sleep $TEMPORAL_INTERVAL
 done
 
 echo ""

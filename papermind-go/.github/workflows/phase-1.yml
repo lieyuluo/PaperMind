@@ -1,4 +1,6 @@
 name: Phase 1 CI Verification
+# NOTE: This is a reference copy. The active workflow is at repo root .github/workflows/phase-1.yml
+# GitHub Actions only reads workflows from the repo root .github/workflows/ directory.
 
 on:
   push:
@@ -19,6 +21,7 @@ jobs:
   phase-1:
     name: Phase 1 Full Verification
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +45,7 @@ jobs:
 
       - name: Wait for infrastructure ready
         run: bash scripts/wait_phase_1_infra.sh
-        timeout-minutes: 5
+        timeout-minutes: 6
 
       - name: Run database migrations
         run: make migrate-up
