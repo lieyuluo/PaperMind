@@ -35,7 +35,10 @@ jobs:
           sudo apt-get install -y postgresql-client curl
 
       - name: Start Docker Compose services
-        run: docker compose -f deployments/docker-compose/docker-compose.yml up -d
+        run: |
+          docker compose -f deployments/docker-compose/docker-compose.yml up -d 2>&1
+          echo "=== Docker Compose Status ==="
+          docker compose -f deployments/docker-compose/docker-compose.yml ps
 
       - name: Wait for infrastructure ready
         run: bash scripts/wait_phase_1_infra.sh
@@ -54,7 +57,7 @@ jobs:
           sleep 3
 
       - name: Run Phase 1 verification
-        run: make verify-phase-1
+        run: PHASE1_CI=true make verify-phase-1
 
       - name: Generate Phase 1 report
         if: always()

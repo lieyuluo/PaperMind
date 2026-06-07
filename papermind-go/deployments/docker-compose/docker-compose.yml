@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   papermind-net:
     driver: bridge
@@ -81,10 +79,11 @@ services:
       POSTGRES_SEEDS: postgresql
       POSTGRES_USER: papermind
       POSTGRES_PWD: papermind
-      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/dynamicconfig.yaml
+      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/dynamicconfig/development.yaml
       ENABLE_SQL_FEATURES: visibility,advanced_visibility
     ports:
       - "7233:7233"
+      - "9090:9090"
     volumes:
       - papermind-temporal-data:/var/lib/temporal
     networks:
@@ -93,7 +92,7 @@ services:
       postgresql:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      test: ["CMD-SHELL", "temporal operator search-attribute list || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5
