@@ -54,32 +54,31 @@ done
 
 # Create MinIO bucket if not exists
 echo -n "MinIO bucket 'papers': "
-if command -v mc &>/dev/null; then
-    mc alias set local http://localhost:9000 minioadmin minioadmin &>/dev/null
-    mc mb local/papers --ignore-existing &>/dev/null
-    echo "ensured"
-else
-    # Fallback: use curl to create bucket via S3 API
-    curl -sf -X PUT http://localhost:9000/papers \
-        -u minioadmin:minioadmin &>/dev/null && echo "created" || echo "may already exist"
-fi
+curl -sf -X PUT http://localhost:9000/papers \
+    -u minioadmin:minioadmin &>/dev/null && echo "created" || echo "may already exist"
 
 # --- Temporal ---
+# Temporal exposes gRPC on :7233. We check if the port is open and accepting connections.
+# The auto-setup image does not expose an HTTP health endpoint by default.
 echo -n "Temporal (:7233): "
 for i in $(seq 1 $MAX_RETRIES); do
-    if curl -sf http://localhost:7233/health &>/dev/null; then
-        echo "READY (${i}s)"
+    # Method 1: Check if gRPC port is reachable using bash /dev/tcp
+    if (echo > /dev/tcp/localhost/7233) &>/dev/null 2>&1; then
+        echo "READY (${i}s) - port open"
         break
     fi
-    # Temporal may take longer to start; also try grpc health via temporal CLI
-    if command -v temporal &>/dev/null; then
-        if temporal operator search-attribute list &>/dev/null; then
-            echo "READY (${i}s)"
-            break
-        fi
+    # Method 2: Try HTTP health endpoint (some Temporal versions expose it)
+    if curl -sf --max-time 2 http://localhost:7233/health &>/dev/null; then
+        echo "READY (${i}s) - HTTP health"
+        break
     fi
     if [ "$i" -eq "$MAX_RETRIES" ]; then
         echo "FAILED (timeout after ${MAX_RETRIES}x${RETRY_INTERVAL}s)"
+        # Print diagnostic info
+        echo "--- Diagnostic: Docker container status ---"
+        docker ps -a --filter "name=papermind-temporal" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+        echo "--- Diagnostic: Temporal container logs (last 20 lines) ---"
+        docker logs papermind-temporal --tail 20 2>&1 || true
         exit 1
     fi
     sleep $RETRY_INTERVAL
