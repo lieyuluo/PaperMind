@@ -6,8 +6,6 @@
 #   CI mode (PHASE1_CI=true):  All checks must PASS. No SKIP allowed.
 #   Local mode (default):      Docker-dependent checks are SKIPped gracefully.
 
-set -euo pipefail
-
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPORT_DIR="$PROJECT_DIR/reports"
 LOG_FILE="$REPORT_DIR/phase-1-acceptance.log"
@@ -188,14 +186,36 @@ fi
 # =============================================================================
 echo ""
 echo "--- API Health Endpoint ---"
+API_STARTED_BY_US=false
 if command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -q "papermind-postgres"; then
-    # Check if API is already running; if not, start it
-    if ! curl -sf http://localhost:8080/api/v1/health &> /dev/null; then
+    # Wait for API to be ready (it may have been started by CI step)
+    API_READY=false
+    for i in $(seq 1 15); do
+        if curl -sf http://localhost:8080/api/v1/health &> /dev/null; then
+            API_READY=true
+            echo "API server is ready (attempt $i)"
+            break
+        fi
+        echo "Waiting for API server... (attempt $i/15)"
+        sleep 2
+    done
+
+    # If API not running yet, start it ourselves
+    if [ "$API_READY" = false ]; then
         cd "$PROJECT_DIR"
-        go run cmd/api/main.go > "$REPORT_DIR/api.log" 2>&1 &
+        go run cmd/api/main.go > "$REPORT_DIR/api_verify.log" 2>&1 &
         API_PID=$!
+        API_STARTED_BY_US=true
         echo "Starting API server (PID: $API_PID)..."
-        sleep 3
+        # Wait for our API to be ready
+        for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/api/v1/health &> /dev/null; then
+                echo "API server started successfully (attempt $i)"
+                break
+            fi
+            echo "Waiting for API server to start... (attempt $i/15)"
+            sleep 2
+        done
     fi
 
     HEALTH_RESP=$(curl -s http://localhost:8080/api/v1/health 2>/dev/null || echo "")
@@ -234,9 +254,9 @@ if command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -q "
     fi
 
     # Stop API if we started it
-    if [ -n "${API_PID:-}" ]; then
+    if [ "$API_STARTED_BY_US" = true ] && [ -n "${API_PID:-}" ]; then
         kill $API_PID 2>/dev/null || true
-        wait $API_PID 2>/dev/null || true
+        sleep 1
     fi
 else
     check_skip "API health endpoint" "Docker/PostgreSQL not available - cannot start API"

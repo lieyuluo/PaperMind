@@ -55,7 +55,18 @@ jobs:
         run: |
           go run cmd/api/main.go > reports/api.log 2>&1 &
           echo $! > /tmp/api_pid.txt
-          sleep 3
+          echo "Waiting for API server to be ready..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8080/api/v1/health > /dev/null 2>&1; then
+              echo "API server ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 20 ]; then
+              echo "WARNING: API server not ready after 40s, continuing anyway"
+              cat reports/api.log || true
+            fi
+            sleep 2
+          done
 
       - name: Run Phase 1 verification
         run: PHASE1_CI=true make verify-phase-1
@@ -79,7 +90,9 @@ jobs:
           path: |
             papermind-go/reports/phase-1-report.md
             papermind-go/reports/phase-1-acceptance.log
+            papermind-go/reports/phase-1-results.env
             papermind-go/reports/api.log
+            papermind-go/reports/api_verify.log
           retention-days: 30
 
       - name: Verify Phase 1 passed
