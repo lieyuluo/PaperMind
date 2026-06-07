@@ -1,6 +1,8 @@
 # PaperMind-Go
 
 > PaperMind 的 Go 后端服务，用于学术论文的智能解析、逻辑建模与 RAG 问答。
+>
+> **完整 Phase 1 验收以 GitHub Actions CI 结果为准。**
 
 ## 项目结构
 
