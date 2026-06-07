@@ -25,10 +25,10 @@ services:
       - papermind-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U papermind -d papermind"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      retries: 60
+      start_period: 30s
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -75,11 +75,17 @@ services:
     container_name: papermind-temporal
     restart: unless-stopped
     environment:
-      DB: postgresql
+      # DB must be 'postgres12' (not 'postgresql') - this is what auto-setup.sh recognizes
+      DB: postgres12
+      # DB_PORT defaults to 3306 (MySQL) - must explicitly set 5432 for PostgreSQL
+      DB_PORT: 5432
       POSTGRES_SEEDS: postgresql
       POSTGRES_USER: papermind
       POSTGRES_PWD: papermind
-      ENABLE_SQL_FEATURES: visibility,advanced_visibility
+      # Temporal creates its own databases (needs CREATEDB privilege on papermind user)
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      # Advanced SQL visibility is enabled by default when using postgres12 without ES
     ports:
       - "7233:7233"
       - "7234:7234"

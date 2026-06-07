@@ -58,17 +58,23 @@ curl -sf -X PUT http://localhost:9000/papers \
     -u minioadmin:minioadmin &>/dev/null && echo "created" || echo "may already exist"
 
 # --- Temporal ---
-# Temporal auto-setup needs time to create databases and initialize schema.
-# We check if the gRPC port 7233 is accepting connections.
-# Temporal auto-setup typically takes 30-90 seconds to become ready.
+# Temporal auto-setup needs time to: wait for PostgreSQL -> create databases -> init schema -> start server
+# We check both: gRPC port 7233 open AND "started" in container logs
 TEMPORAL_RETRIES=90
 TEMPORAL_INTERVAL=3
 echo -n "Temporal (:7233): "
 for i in $(seq 1 $TEMPORAL_RETRIES); do
-    # Check if gRPC port is reachable using bash /dev/tcp
+    # Check if gRPC port is reachable
     if (echo > /dev/tcp/localhost/7233) &>/dev/null 2>&1; then
-        echo "READY (${i}s) - port open"
-        break
+        # Port is open - verify server has actually started (not just binding)
+        if docker logs papermind-temporal 2>&1 | tail -5 | grep -qi "started"; then
+            echo "READY (${i}s) - server started"
+            break
+        fi
+        # Port open but server not fully started yet, keep waiting
+        if [ "$i" -eq "$TEMPORAL_RETRIES" ]; then
+            echo "FAILED (port open but server not started after ${TEMPORAL_RETRIES}x${TEMPORAL_INTERVAL}s)"
+        fi
     fi
     if [ "$i" -eq "$TEMPORAL_RETRIES" ]; then
         echo "FAILED (timeout after ${TEMPORAL_RETRIES}x${TEMPORAL_INTERVAL}s)"
